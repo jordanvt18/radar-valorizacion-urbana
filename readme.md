@@ -27,11 +27,16 @@ Sistema de predicción de valorización inmobiliaria para Quito y Guayaquil, Ecu
 - pip o conda
 - Docker y docker-compose (opcional, para despliegue containerizado)
 
+### Fuentes de datos complementarias
+
+- [Proyectos de inversión del gobierno de Ecuador — impacto en valorización urbana](docs/proyectos_inversion_gobierno.md): investigación con cifras de presupuesto público (PGE 2025: USD 40.080 M), proyectos emblemáticos (Metro de Quito, aeropuerto Mariscal Sucre, Posorja), programas de vivienda (MIDUVI, Casa 100) y financiamiento multilateral (BID, CAF, Banco Mundial), con 46 fuentes citadas.
+- Scrapers inmobiliarios en `scripts/scrapers/`: recolección ética (robots.txt, delays) de listados de Plusvalía, Properati, OLX y RE/MAX Ecuador.
+
 ### Instalación
 
 ```bash
 # Clonar el repositorio
-git clone <repo-url>
+git clone https://github.com/jordanvt18/radar-valorizacion-urbana.git
 cd radar-valorizacion-urbana
 
 # Crear entorno virtual
