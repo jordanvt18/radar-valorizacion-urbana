@@ -1,0 +1,99 @@
+# =============================================================================
+# Configuration — Radar de Valorización Urbana
+# Real estate valuation prediction system for Quito and Guayaquil, Ecuador
+# =============================================================================
+
+project:
+  name: "Radar de Valorización Urbana"
+  version: "0.1.0"
+  description: "Real estate valuation prediction for Ecuador"
+
+# H3 hexagonal grid configuration
+h3:
+  resolution: 8
+  # Average hex edge length at res 8 ≈ 0.74 km, area ≈ 0.74 km²
+
+# City centers (CBD coordinates)
+cities:
+  quito:
+    name: "Quito"
+    cbd_lat: -0.18
+    cbd_lon: -78.47
+    bbox:
+      min_lat: -0.45
+      max_lat: 0.10
+      min_lon: -78.70
+      max_lon: -78.30
+    num_cells: 30
+
+  guayaquil:
+    name: "Guayaquil"
+    cbd_lat: -2.17
+    cbd_lon: -79.92
+    bbox:
+      min_lat: -2.30
+      max_lat: -1.95
+      min_lon: -80.10
+      max_lon: -79.75
+    num_cells: 25
+
+# Data paths
+paths:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  transactions_parquet: "data/processed/transactions.parquet"
+  transactions_csv: "data/processed/transactions.csv"
+  transactions_geojson: "data/processed/transactions.geojson"
+  mobility_csv: "data/processed/mobility.csv"
+  satellite_csv: "data/processed/satellite_features.csv"
+  services_csv: "data/processed/services.csv"
+  socioeconomic_csv: "data/processed/socioeconomic.csv"
+  features_parquet: "data/processed/features.parquet"
+  features_csv: "data/processed/features.csv"
+  satellite_patches_dir: "data/processed/satellite_patches"
+
+# Transaction generation parameters
+transactions:
+  total_count: 2500
+  start_date: "2019-01-01"
+  end_date: "2024-12-31"
+  annual_price_growth: 0.065  # 6.5% average annual growth
+  property_types:
+    apartment:
+      weight: 0.55
+      price_min: 40000
+      price_max: 200000
+      area_min: 40
+      area_max: 150
+      bedrooms_range: [1, 4]
+      bathrooms_range: [1, 3]
+    house:
+      weight: 0.30
+      price_min: 80000
+      price_max: 400000
+      area_min: 80
+      area_max: 350
+      bedrooms_range: [2, 6]
+      bathrooms_range: [1, 4]
+    lot:
+      weight: 0.15
+      price_min: 30000
+      price_max: 150000
+      area_min: 100
+      area_max: 1000
+      bedrooms_range: [0, 0]
+      bathrooms_range: [0, 0]
+
+# Mobility parameters
+mobility:
+  peak_hours: [7, 8, 9, 17, 18, 19]
+  min_travel_time_min: 5
+  max_travel_time_min: 90
+
+# Satellite parameters
+satellite:
+  patch_size: 128
+  num_bands: 3  # RGB simulation
+
+# Random seed for reproducibility
+random_seed: 42

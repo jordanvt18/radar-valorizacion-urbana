@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar de Valorización Urbana — Ecuador</title>
+
+    <!-- Tailwind CSS 3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet 1.9 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Heatmap Plugin -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- Plotly 2.27 -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css"/>
+</head>
+<body class="bg-gray-900 text-gray-100">
+
+<!-- ============================ HEADER ============================ -->
+<header class="urban-header">
+    <div class="header-inner">
+        <div class="header-title-block">
+            <h1 class="header-title">
+                <span class="header-icon">📡</span> Radar de Valorización Urbana
+            </h1>
+            <p class="header-subtitle">Sistema de Predicción de Valorización Inmobiliaria — Ecuador</p>
+        </div>
+        <div class="header-status">
+            <span id="apiStatusDot" class="status-dot status-dot--unknown"></span>
+            <span id="apiStatusText" class="status-text">Conectando…</span>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="tab-nav">
+        <button class="tab-btn tab-btn--active" data-tab="mapa">
+            <span class="tab-icon">🗺️</span> Mapa
+        </button>
+        <button class="tab-btn" data-tab="explicabilidad">
+            <span class="tab-icon">📊</span> Explicabilidad
+        </button>
+        <button class="tab-btn" data-tab="simulador">
+            <span class="tab-icon">🎚️</span> Simulador
+        </button>
+        <button class="tab-btn" data-tab="comparador">
+            <span class="tab-icon">⚖️</span> Comparador
+        </button>
+    </nav>
+</header>
+
+<!-- ============================ MAIN ============================ -->
+<main class="main-content">
+
+    <!-- ===================== TAB: MAPA ===================== -->
+    <section id="tab-mapa" class="tab-panel tab-panel--active">
+        <div class="map-toolbar">
+            <div class="toolbar-left">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="heatmapToggle" checked/>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Capa de Calor</span>
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="markersToggle" checked/>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Marcadores</span>
+                </label>
+            </div>
+            <div class="toolbar-right">
+                <select id="horizonSelect" class="urban-select">
+                    <option value="6">6 meses</option>
+                    <option value="12" selected>12 meses</option>
+                    <option value="24">24 meses</option>
+                    <option value="36">36 meses</option>
+                </select>
+                <button id="refreshCellsBtn" class="urban-btn urban-btn--secondary" title="Recargar celdas">
+                    🔄 Recargar
+                </button>
+            </div>
+        </div>
+        <div id="leafletMap" class="leaflet-map"></div>
+        <div id="cellDetailPanel" class="cell-detail-panel hidden">
+            <button class="panel-close" onclick="document.getElementById('cellDetailPanel').classList.add('hidden')">✕</button>
+            <div id="cellDetailContent"></div>
+        </div>
+    </section>
+
+    <!-- ===================== TAB: EXPLICABILIDAD ===================== -->
+    <section id="tab-explicabilidad" class="tab-panel">
+        <div class="tab-header">
+            <h2 class="tab-title">Análisis de Explicabilidad SHAP</h2>
+            <p class="tab-description">Interpretabilidad del modelo: cómo cada característica contribuye a la valorización predicha.</p>
+        </div>
+        <div class="explain-controls">
+            <label class="urban-form-label">Seleccionar Celda:</label>
+            <select id="explainCellSelect" class="urban-select urban-select--wide">
+                <option value="">-- Seleccione una celda --</option>
+            </select>
+            <button id="explainFetchBtn" class="urban-btn urban-btn--primary">Analizar</button>
+        </div>
+        <div id="explainLoading" class="loading-container hidden">
+            <div class="urban-spinner"></div>
+            <p class="loading-text">Cargando análisis SHAP…</p>
+        </div>
+        <div id="explainContent" class="explain-content hidden">
+            <div class="explain-grid">
+                <div class="urban-card">
+                    <h3 class="card-title">Gráfico Waterfall — Contribuciones SHAP</h3>
+                    <div id="shapWaterfallChart" class="chart-container"></div>
+                </div>
+                <div class="urban-card">
+                    <h3 class="card-title">Importancia de Características</h3>
+                    <div id="featureImportanceChart" class="chart-container"></div>
+                </div>
+            </div>
+            <div class="urban-card">
+                <h3 class="card-title">Resumen de Factores</h3>
+                <div id="shapSummaryTable" class="shap-summary-table"></div>
+            </div>
+        </div>
+        <div id="explainError" class="error-banner hidden"></div>
+    </section>
+
+    <!-- ===================== TAB: SIMULADOR ===================== -->
+    <section id="tab-simulador" class="tab-panel">
+        <div class="tab-header">
+            <h2 class="tab-title">Simulador de Escenarios</h2>
+            <p class="tab-description">Ajuste las variables macroeconómicas y observe el impacto en la valorización predicha.</p>
+        </div>
+        <div class="simulator-layout">
+            <div class="simulator-controls urban-card">
+                <h3 class="card-title">Variables de Simulación</h3>
+
+                <div class="slider-group">
+                    <label class="slider-label">
+                        <span>Tasa de Interés (%)</span>
+                        <span id="interestRateValue" class="slider-value">5.5</span>
+                    </label>
+                    <input type="range" id="interestRate" class="urban-slider"
+                           min="0" max="15" step="0.1" value="5.5"/>
+                </div>
+
+                <div class="slider-group">
+                    <label class="slider-label">
+                        <span>Crecimiento del PIB (%)</span>
+                        <span id="gdpGrowthValue" class="slider-value">2.5</span>
+                    </label>
+                    <input type="range" id="gdpGrowth" class="urban-slider"
+                           min="-5" max="10" step="0.1" value="2.5"/>
+                </div>
+
+                <div class="slider-group">
+                    <label class="slider-label">
+                        <span>Tasa de Migración (%)</span>
+                        <span id="migrationRateValue" class="slider-value">1.0</span>
+                    </label>
+                    <input type="range" id="migrationRate" class="urban-slider"
+                           min="-5" max="10" step="0.1" value="1.0"/>
+                </div>
+
+                <div class="slider-group">
+                    <label class="slider-label">
+                        <span>Inversión en Infraestructura (M USD)</span>
+                        <span id="infraInvestmentValue" class="slider-value">50</span>
+                    </label>
+                    <input type="range" id="infraInvestment" class="urban-slider"
+                           min="0" max="500" step="5" value="50"/>
+                </div>
+
+                <div class="slider-group">
+                    <label class="slider-label">
+                        <span>Celda Objetivo</span>
+                    </label>
+                    <select id="simulateCellSelect" class="urban-select urban-select--wide">
+                        <option value="">-- Todas las celdas --</option>
+                    </select>
+                </div>
+
+                <button id="simulateBtn" class="urban-btn urban-btn--primary urban-btn--full">
+                    ▶ Ejecutar Simulación
+                </button>
+            </div>
+
+            <div class="simulator-results">
+                <div id="simLoading" class="loading-container hidden">
+                    <div class="urban-spinner"></div>
+                    <p class="loading-text">Ejecutando simulación…</p>
+                </div>
+                <div id="simResults" class="sim-results hidden">
+                    <div class="urban-card">
+                        <h3 class="card-title">Comparación: Escenario Base vs Simulado</h3>
+                        <div id="scenarioChart" class="chart-container"></div>
+                    </div>
+                    <div class="urban-card">
+                        <h3 class="card-title">Detalle de Cambios por Celda</h3>
+                        <div id="simDetailTable" class="sim-detail-table"></div>
+                    </div>
+                </div>
+                <div id="simError" class="error-banner hidden"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== TAB: COMPARADOR ===================== -->
+    <section id="tab-comparador" class="tab-panel">
+        <div class="tab-header">
+            <h2 class="tab-title">Comparador de Celdas</h2>
+            <p class="tab-description">Seleccione múltiples celdas para comparar sus predicciones y características.</p>
+        </div>
+        <div class="comparator-controls urban-card">
+            <div class="comparator-select-area">
+                <label class="urban-form-label">Celdas a Comparar:</label>
+                <div id="cellChipArea" class="chip-area">
+                    <div id="cellChips" class="chips-list"></div>
+                    <select id="compareCellSelect" class="urban-select urban-select--wide">
+                        <option value="">-- Añadir celda --</option>
+                    </select>
+                    <button id="addCompareCellBtn" class="urban-btn urban-btn--secondary">＋ Añadir</button>
+                </div>
+            </div>
+            <div class="comparator-actions">
+                <label class="urban-form-label">Horizonte:</label>
+                <select id="compareHorizonSelect" class="urban-select">
+                    <option value="6">6 meses</option>
+                    <option value="12" selected>12 meses</option>
+                    <option value="24">24 meses</option>
+                    <option value="36">36 meses</option>
+                </select>
+                <button id="compareBtn" class="urban-btn urban-btn--primary">Comparar</button>
+                <button id="clearCompareBtn" class="urban-btn urban-btn--ghost">Limpiar</button>
+            </div>
+        </div>
+        <div id="compareLoading" class="loading-container hidden">
+            <div class="urban-spinner"></div>
+            <p class="loading-text">Comparando celdas…</p>
+        </div>
+        <div id="compareResults" class="compare-results hidden">
+            <div class="urban-card">
+                <h3 class="card-title">Predicciones de Valorización</h3>
+                <div id="valuationChart" class="chart-container"></div>
+            </div>
+            <div class="urban-card">
+                <h3 class="card-title">Tabla Comparativa</h3>
+                <div id="compareTable" class="compare-table-container"></div>
+            </div>
+        </div>
+        <div id="compareError" class="error-banner hidden"></div>
+    </section>
+</main>
+
+<!-- ============================ LOADING OVERLAY ============================ -->
+<div id="globalLoading" class="global-loading hidden">
+    <div class="global-loading-content">
+        <div class="urban-spinner urban-spinner--large"></div>
+        <p class="loading-text">Cargando datos…</p>
+    </div>
+</div>
+
+<!-- ============================ TOAST ============================ -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- ============================ SCRIPTS ============================ -->
+<script src="plotly_panel.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
