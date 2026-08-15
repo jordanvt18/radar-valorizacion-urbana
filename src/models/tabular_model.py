@@ -76,9 +76,19 @@ class TabularModelResult:
 def _split_features_target(
     df: pd.DataFrame,
 ) -> Tuple[pd.DataFrame, pd.Series]:
-    """Return *(X, y)* with non-feature columns dropped."""
+    """Return *(X, y)* with non-feature columns dropped.
+
+    Drops explicit exclude columns (cell_id, lat, lon, target) plus any
+    non-numeric columns (e.g. ``city``) that LightGBM cannot consume.
+    """
     drop = [c for c in EXCLUDE_COLS if c in df.columns]
     X = df.drop(columns=drop)
+
+    # Drop non-numeric columns (object/category dtypes) — LightGBM requires
+    # int/float/bool. Keep only numeric and boolean columns as features.
+    numeric_types = ("number", "bool")
+    X = X.select_dtypes(include=numeric_types)
+
     y = df[TARGET_COL] if TARGET_COL in df.columns else pd.Series(dtype=float)
     return X, y
 

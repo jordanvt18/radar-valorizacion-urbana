@@ -32,11 +32,11 @@ if str(_PROJECT_ROOT) not in sys.path:
 # Imports from etl_transactions
 # ---------------------------------------------------------------------------
 from src.etl.etl_transactions import (
-    _generate_grid_cells,
     _haversine_km,
     _load_config,
     DEFAULT_SEED,
 )
+from src.etl.grid import load_or_create_grid
 
 logger = logging.getLogger(__name__)
 
@@ -239,10 +239,14 @@ def run(config: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
 
     all_socio: List[pd.DataFrame] = []
 
+    # Load canonical grid (same cells across ALL ETL modules)
+    grid = load_or_create_grid(config)
+
     for city_key, city_cfg in cities.items():
         city_name = city_cfg.get("name", city_key.capitalize())
-        logger.info("Generating grid cells for %s...", city_name)
-        cells = _generate_grid_cells(city_cfg, resolution, rng)
+        logger.info("Loading grid cells for %s...", city_name)
+        city_grid = grid[grid["city"] == city_name]
+        cells = list(zip(city_grid["cell_id"], city_grid["lat"], city_grid["lon"]))
 
         logger.info("Generating socioeconomic indicators for %s...", city_name)
         city_socio = _generate_socioeconomic_for_cells(cells, city_name, city_cfg, rng)

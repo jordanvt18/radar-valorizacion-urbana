@@ -46,9 +46,16 @@ EXCLUDE_COLS: Tuple[str, ...] = ("cell_id", "lat", "lon", TARGET_COL)
 
 
 def _prepare_X(df: pd.DataFrame) -> pd.DataFrame:
-    """Return feature matrix *X* with non-feature columns dropped."""
+    """Return feature matrix *X* with non-feature columns dropped.
+
+    Mirrors ``tabular_model._split_features_target``: drops explicit
+    exclude columns (cell_id, lat, lon, target) plus any non-numeric
+    column (e.g. ``city``) so feature alignment with trained models
+    is exact.
+    """
     drop = [c for c in EXCLUDE_COLS if c in df.columns]
-    return df.drop(columns=drop)
+    X = df.drop(columns=drop)
+    return X.select_dtypes(include=("number", "bool"))
 
 
 def _fallback_importance(model: Any, feature_names: List[str]) -> Tuple[np.ndarray, np.ndarray]:

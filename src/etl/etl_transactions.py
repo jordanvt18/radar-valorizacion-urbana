@@ -501,10 +501,16 @@ def run(config: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
 
     all_transactions: List[pd.DataFrame] = []
 
+    # Load canonical grid (same cells across ALL ETL modules)
+    from src.etl.grid import load_or_create_grid
+
+    grid = load_or_create_grid(config)
+
     for city_key, city_cfg in cities.items():
         city_name = city_cfg.get("name", city_key.capitalize())
-        logger.info("Generating grid cells for %s...", city_name)
-        cells = _generate_grid_cells(city_cfg, resolution, rng)
+        logger.info("Loading grid cells for %s...", city_name)
+        city_grid = grid[grid["city"] == city_name]
+        cells = list(zip(city_grid["cell_id"], city_grid["lat"], city_grid["lon"]))
 
         logger.info("Generating transactions for %s...", city_name)
         city_tx = _generate_transactions(cells, city_name, config, rng)

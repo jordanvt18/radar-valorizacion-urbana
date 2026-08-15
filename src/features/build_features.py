@@ -415,8 +415,12 @@ def build_features(config: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
     logger.info("MERGING DATA SOURCES")
     logger.info("=" * 60)
 
-    # Start with transaction aggregation
-    df = df_tx_agg.copy()
+    # Start from the canonical grid so every cell has lat/lon and city,
+    # then attach transaction aggregates and all ETL feature tables.
+    from src.etl.grid import load_or_create_grid
+
+    df = load_or_create_grid(config)
+    df = df.merge(df_tx_agg, on="cell_id", how="left")
 
     # Merge mobility (drop duplicate city/lat/lon, keep mobility-specific columns)
     if not df_mobility.empty:

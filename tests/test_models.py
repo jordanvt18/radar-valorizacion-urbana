@@ -131,10 +131,12 @@ class TestCalibration:
         from src.models.calibration import calibrate_predictions
 
         rng = np.random.default_rng(42)
-        n = 50
-        base_predictions = rng.uniform(0, 0.2, n)
+        n_rows = 50
+        n_samples = 100
+        # MC-style samples: shape (n_samples, n_rows)
+        base_predictions = rng.normal(loc=0.08, scale=0.02, size=(n_samples, n_rows))
 
-        result = calibrate_predictions(base_predictions, n_samples=50)
+        result = calibrate_predictions(base_predictions, n_samples=n_samples)
 
         assert "lower" in result, "Result should have 'lower' bound"
         assert "upper" in result, "Result should have 'upper' bound"
@@ -143,6 +145,7 @@ class TestCalibration:
         lower = np.array(result["lower"])
         upper = np.array(result["upper"])
 
+        assert lower.shape == (n_rows,), "Lower bound should have one value per row"
         assert np.all(lower <= upper), "Lower bound should be <= upper bound"
         assert np.all(np.isfinite(lower)), "Lower bounds should be finite"
         assert np.all(np.isfinite(upper)), "Upper bounds should be finite"
@@ -152,12 +155,15 @@ class TestCalibration:
         from src.models.calibration import calibrate_predictions
 
         rng = np.random.default_rng(42)
-        base = rng.uniform(0.05, 0.15, 100)
-        result = calibrate_predictions(base, n_samples=100)
+        n_rows = 100
+        n_samples = 100
+        base = rng.normal(loc=0.10, scale=0.02, size=(n_samples, n_rows))
+        result = calibrate_predictions(base, n_samples=n_samples)
 
         mean_vals = np.array(result["mean"])
-        assert np.allclose(mean_vals, base, atol=0.05), \
-            "Calibrated mean should be close to base predictions"
+        expected = base.mean(axis=0)
+        assert np.allclose(mean_vals, expected, atol=0.02), \
+            "Calibrated mean should be close to MC sample mean"
 
 
 # ─── Tests: Explainability ──────────────────────────────────────────────────
