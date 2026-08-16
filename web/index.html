@@ -40,7 +40,10 @@
 
     <!-- Navigation Tabs -->
     <nav class="tab-nav">
-        <button class="tab-btn tab-btn--active" data-tab="mapa">
+        <button class="tab-btn tab-btn--active" data-tab="dashboard">
+            <span class="tab-icon">📈</span> Dashboard
+        </button>
+        <button class="tab-btn" data-tab="mapa">
             <span class="tab-icon">🗺️</span> Mapa
         </button>
         <button class="tab-btn" data-tab="explicabilidad">
@@ -58,8 +61,45 @@
 <!-- ============================ MAIN ============================ -->
 <main class="main-content">
 
+    <!-- ===================== TAB: DASHBOARD ===================== -->
+    <section id="tab-dashboard" class="tab-panel tab-panel--active">
+        <div class="tab-header">
+            <h2 class="tab-title">Panel General — Índice de Inteligencia Urbana</h2>
+            <p class="tab-description">Indicadores agregados de valorización, mercado y sostenibilidad para Quito y Guayaquil.</p>
+        </div>
+        <div id="kpiRow" class="kpi-row">
+            <div class="kpi-card"><div class="kpi-value" id="kpiCells">—</div><div class="kpi-label">Celdas Analizadas</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpiTx">—</div><div class="kpi-label">Transacciones</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpiValuation">—</div><div class="kpi-label">Valorización Anual Prom.</div></div>
+            <div class="kpi-card"><div class="kpi-value" id="kpiIndex">—</div><div class="kpi-label">Índice Inteligencia Urbana</div></div>
+        </div>
+        <div class="dashboard-grid">
+            <div class="urban-card">
+                <h3 class="card-title">Distribución del Índice de Inteligencia Urbana</h3>
+                <div id="indexDistChart" class="chart-container chart-container--sm"></div>
+            </div>
+            <div class="urban-card">
+                <h3 class="card-title">Índice por Ciudad</h3>
+                <div id="cityIndexChart" class="chart-container chart-container--sm"></div>
+            </div>
+            <div class="urban-card">
+                <h3 class="card-title">Top 10 Celdas por Valorización</h3>
+                <div id="topCellsChart" class="chart-container chart-container--sm"></div>
+            </div>
+            <div class="urban-card">
+                <h3 class="card-title">Ranking de Drivers Urbanos (Importancia)</h3>
+                <div id="globalDriversChart" class="chart-container chart-container--sm"></div>
+            </div>
+        </div>
+        <div class="urban-card">
+            <h3 class="card-title">Estadísticas por Ciudad</h3>
+            <div id="cityStatsTable" class="compare-table-container"></div>
+        </div>
+        <div id="dashboardError" class="error-banner hidden"></div>
+    </section>
+
     <!-- ===================== TAB: MAPA ===================== -->
-    <section id="tab-mapa" class="tab-panel tab-panel--active">
+    <section id="tab-mapa" class="tab-panel">
         <div class="map-toolbar">
             <div class="toolbar-left">
                 <label class="toggle-switch">
@@ -72,6 +112,16 @@
                     <span class="toggle-slider"></span>
                     <span class="toggle-label">Marcadores</span>
                 </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="indexToggle"/>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Capa Índice Urbano</span>
+                </label>
+                <label class="urban-form-label" style="margin:0">Colorear por:</label>
+                <select id="colorBySelect" class="urban-select">
+                    <option value="valuation">Valorización</option>
+                    <option value="index">Índice Urbano</option>
+                </select>
             </div>
             <div class="toolbar-right">
                 <select id="horizonSelect" class="urban-select">
@@ -86,9 +136,17 @@
             </div>
         </div>
         <div id="leafletMap" class="leaflet-map"></div>
+        <div id="mapLegend" class="map-legend">
+            <div class="legend-title">Valorización</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#4ade80"></span> Alta</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#2a9d8f"></span> Media</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#fbbf24"></span> Baja</div>
+            <div class="legend-item"><span class="legend-dot" style="background:#ef4444"></span> Negativa</div>
+        </div>
         <div id="cellDetailPanel" class="cell-detail-panel hidden">
             <button class="panel-close" onclick="document.getElementById('cellDetailPanel').classList.add('hidden')">✕</button>
             <div id="cellDetailContent"></div>
+            <div id="cellTrendChart" class="chart-container chart-container--xs"></div>
         </div>
     </section>
 
@@ -119,6 +177,10 @@
                     <h3 class="card-title">Importancia de Características</h3>
                     <div id="featureImportanceChart" class="chart-container"></div>
                 </div>
+            </div>
+            <div class="urban-card">
+                <h3 class="card-title">Ranking Global de Drivers Urbanos</h3>
+                <div id="globalDriversExplainChart" class="chart-container"></div>
             </div>
             <div class="urban-card">
                 <h3 class="card-title">Resumen de Factores</h3>

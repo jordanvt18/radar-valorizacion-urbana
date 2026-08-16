@@ -23,7 +23,9 @@ const AppState = {
     selectedCells: [],
     currentHorizon: 12,
     apiOnline: false,
-    usingDemoData: false
+    usingDemoData: false,
+    globalDrivers: null,
+    dashboardLoaded: false
 };
 
 /* ================================================================
@@ -406,6 +408,137 @@ async function loadCells() {
     }
 }
 
+
+/* ================================================================
+   DASHBOARD — KPIs, índice, drivers globales, estadísticas
+   ================================================================ */
+
+/**
+ * Carga y renderiza el panel general (dashboard).
+ */
+async function loadDashboard() {
+    hideError('dashboardError');
+
+    try {
+        let summary, indexData, driversData;
+
+        if (AppState.apiOnline) {
+            [summary, indexData, driversData] = await Promise.all([
+                fetchApi('/summary'),
+                fetchApi('/index'),
+                fetchApi('/drivers'),
+            ]);
+        } else {
+            summary = generateDemoSummary();
+            indexData = generateDemoIndex();
+            driversData = generateDemoDrivers();
+        }
+
+        // KPIs
+        document.getElementById('kpiCells').textContent = summary.total_cells ?? '—';
+        document.getElementById('kpiTx').textContent = (summary.total_transactions ?? 0).toLocaleString();
+        document.getElementById('kpiValuation').textContent =
+            ((summary.avg_valuation ?? 0) * 100).toFixed(2) + '%';
+        document.getElementById('kpiIndex').textContent =
+            (indexData.global_average ?? '—') + ' / 100';
+
+        // Gráficos
+        renderIndexDistribution('indexDistChart', summary.index_distribution || {});
+        renderCityComparison('cityIndexChart', indexData.city_averages || {}, indexData.global_average || 0);
+        renderTopCells('topCellsChart', summary.top_cells || []);
+
+        const drivers = (driversData.drivers || []).slice(0, 12);
+        renderFeatureImportance('globalDriversChart', {
+            features: drivers.map(d => d.feature),
+            importances: drivers.map(d => d.importance),
+        });
+
+        renderCityStatsTable('cityStatsTable', summary.city_stats || []);
+
+        // Guardar drivers globales para la pestaña de explicabilidad
+        AppState.globalDrivers = driversData;
+        renderGlobalDrivers();
+    } catch (err) {
+        console.error('[Radar] Error al cargar dashboard:', err);
+        showError('dashboardError', 'No se pudo cargar el panel general.');
+    }
+}
+
+/**
+ * Renderiza el ranking global de drivers en la pestaña de explicabilidad.
+ */
+function renderGlobalDrivers() {
+    const drivers = (AppState.globalDrivers?.drivers || []).slice(0, 12);
+    if (drivers.length === 0) return;
+
+    renderFeatureImportance('globalDriversExplainChart', {
+        features: drivers.map(d => d.feature),
+        importances: drivers.map(d => d.importance),
+    });
+}
+
+/**
+ * Datos de demostración para el summary.
+ */
+function generateDemoSummary() {
+    return {
+        total_cells: DEMO_CELLS.length,
+        total_transactions: 12450,
+        avg_valuation: 0.058,
+        avg_price: 128500,
+        top_cells: DEMO_CELLS.slice(0, 10).map((c, i) => ({
+            cell_id: c.cell_id,
+            city: c.city,
+            annualized_valuation: 0.16 - i * 0.012,
+        })),
+        city_stats: [
+            { city: 'Quito', cells: 10, transactions: 6120, avg_price: 132000, avg_valuation: 0.062 },
+            { city: 'Guayaquil', cells: 10, transactions: 6330, avg_price: 125000, avg_valuation: 0.054 },
+        ],
+        index_distribution: { 'bajo (<40)': 6, 'medio (40-60)': 10, 'alto (60-80)': 4, 'muy alto (>80)': 0 },
+    };
+}
+
+/**
+ * Datos de demostración para el índice.
+ */
+function generateDemoIndex() {
+    const cityAverages = {};
+    DEMO_CELLS.forEach(c => {
+        cityAverages[c.city] = cityAverages[c.city] || { sum: 0, n: 0 };
+        cityAverages[c.city].sum += c.index || 55;
+        cityAverages[c.city].n += 1;
+    });
+    const averages = {};
+    Object.entries(cityAverages).forEach(([city, v]) => {
+        averages[city] = Math.round((v.sum / v.n) * 10) / 10;
+    });
+    const allVals = DEMO_CELLS.map(c => c.index || 55);
+    const global = Math.round((allVals.reduce((a, b) => a + b, 0) / allVals.length) * 10) / 10;
+    return { city_averages: averages, global_average: global, cells: [] };
+}
+
+/**
+ * Datos de demostración para el ranking de drivers.
+ */
+function generateDemoDrivers() {
+    return {
+        method: 'demo',
+        drivers: [
+            { feature: 'price_trend', importance: 0.158 },
+            { feature: 'avg_price', importance: 0.065 },
+            { feature: 'banks_count', importance: 0.065 },
+            { feature: 'transaction_count', importance: 0.056 },
+            { feature: 'walkability_score', importance: 0.056 },
+            { feature: 'connectivity_index', importance: 0.048 },
+            { feature: 'ndvi_mean', importance: 0.042 },
+            { feature: 'schools_count', importance: 0.040 },
+            { feature: 'median_income_usd', importance: 0.038 },
+            { feature: 'transit_stops_count', importance: 0.036 },
+        ],
+    };
+}
+
 /**
  * Renderiza marcadores circulares en el mapa, coloreados por valorización.
  * @param {Array<Object>} cells — Lista de celdas
@@ -574,6 +707,41 @@ function showCellDetail(cell, prediction) {
     `;
 
     panel.classList.remove('hidden');
+
+    // Cargar la tendencia histórica de precios de la celda
+    loadCellTrend(cell.cell_id);
+}
+
+/**
+ * Carga y renderiza la tendencia de precios histórica de una celda.
+ * @param {string} cellId — ID de la celda
+ */
+async function loadCellTrend(cellId) {
+    const chartEl = document.getElementById('cellTrendChart');
+    if (!chartEl) return;
+
+    try {
+        let trendData;
+        if (AppState.apiOnline) {
+            trendData = await fetchApi(`/trends?cell_id=${encodeURIComponent(cellId)}`);
+        } else {
+            // Tendencia de demostración: serie 2019-2024 con crecimiento del 6%
+            const base = 90000 + (cellId.charCodeAt(0) % 8) * 10000;
+            trendData = {
+                cell_id: cellId,
+                price_trend: 0.06,
+                series: Array.from({ length: 6 }, (_, i) => ({
+                    year: 2019 + i,
+                    avg_price: Math.round(base * Math.pow(1.06, i)),
+                    transactions: 12 + i * 3,
+                })),
+            };
+        }
+        renderPriceTrend('cellTrendChart', trendData);
+    } catch (err) {
+        console.error('[Radar] Error al cargar tendencia:', err);
+        chartEl.innerHTML = '';
+    }
 }
 
 /* ================================================================
@@ -1221,6 +1389,96 @@ function renderCompareTable(data) {
    ================================================================ */
 
 /**
+ * Carga el índice de inteligencia urbana y colorea los marcadores por índice.
+ */
+async function loadIndexLayer() {
+    try {
+        let indexData;
+        if (AppState.apiOnline) {
+            indexData = await fetchApi('/index');
+        } else {
+            indexData = generateDemoIndex();
+            // Construir cells con índice sintético
+            indexData.cells = DEMO_CELLS.map((c, i) => ({
+                cell_id: c.cell_id,
+                city: c.city,
+                lat: c.lat,
+                lon: c.lon,
+                index: 40 + ((i * 7) % 50),
+            }));
+        }
+
+        if (!AppState.markersLayer) return;
+        AppState.markersLayer.clearLayers();
+
+        const markersToggle = document.getElementById('markersToggle');
+        if (markersToggle && !markersToggle.checked) return;
+
+        const cells = indexData.cells || [];
+        cells.forEach(cell => {
+            const idx = cell.index ?? 50;
+            const color = idx >= 70 ? '#4ade80' : idx >= 50 ? '#2a9d8f' : idx >= 35 ? '#fbbf24' : '#ef4444';
+
+            const marker = L.circleMarker([cell.lat, cell.lon], {
+                radius: 10,
+                fillColor: color,
+                color: '#1e2026',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.85
+            });
+
+            marker.bindPopup(`
+                <div style="min-width:180px">
+                    <strong style="color:#5cb8b0">Celda ${cell.cell_id}</strong><br>
+                    <span style="color:#a0a6b5">Ciudad:</span> ${cell.city}<br>
+                    <span style="color:#a0a6b5">Índice Inteligencia Urbana:</span> <b style="color:#f9b87a">${idx}</b>/100
+                </div>
+            `);
+
+            const demoCell = DEMO_CELLS.find(c => c.cell_id === cell.cell_id) || {
+                cell_id: cell.cell_id, city: cell.city, lat: cell.lat, lon: cell.lon, avg_price: 100000
+            };
+            marker.on('click', () => onCellClick(demoCell));
+
+            AppState.markersLayer.addLayer(marker);
+        });
+
+        updateLegend('index');
+    } catch (err) {
+        console.error('[Radar] Error al cargar capa de índice:', err);
+        showToast('Error al cargar la capa de índice', 'error');
+    }
+}
+
+/**
+ * Actualiza la leyenda del mapa según la capa activa.
+ * @param {string} mode — 'valuation' | 'index'
+ */
+function updateLegend(mode) {
+    const legend = document.getElementById('mapLegend');
+    if (!legend) return;
+
+    const title = legend.querySelector('.legend-title');
+    const items = legend.querySelectorAll('.legend-item');
+    if (!title || items.length < 4) return;
+
+    if (mode === 'index') {
+        title.textContent = 'Índice Urbano';
+        items[0].innerHTML = '<span class="legend-dot" style="background:#4ade80"></span> Muy alto (70+)';
+        items[1].innerHTML = '<span class="legend-dot" style="background:#2a9d8f"></span> Alto (50-70)';
+        items[2].innerHTML = '<span class="legend-dot" style="background:#fbbf24"></span> Medio (35-50)';
+        items[3].innerHTML = '<span class="legend-dot" style="background:#ef4444"></span> Bajo (<35)';
+    } else {
+        title.textContent = 'Valorización';
+        items[0].innerHTML = '<span class="legend-dot" style="background:#4ade80"></span> Alta';
+        items[1].innerHTML = '<span class="legend-dot" style="background:#2a9d8f"></span> Media';
+        items[2].innerHTML = '<span class="legend-dot" style="background:#fbbf24"></span> Baja';
+        items[3].innerHTML = '<span class="legend-dot" style="background:#ef4444"></span> Negativa';
+    }
+}
+
+/**
  * Configura todos los event listeners de la interfaz.
  */
 function setupEventListeners() {
@@ -1262,6 +1520,41 @@ function setupEventListeners() {
         refreshBtn.addEventListener('click', async () => {
             await checkApiHealth();
             await loadCells();
+        });
+    }
+
+    // --- Mapa: colorear por índice/valorización ---
+    const colorBySelect = document.getElementById('colorBySelect');
+    if (colorBySelect) {
+        colorBySelect.addEventListener('change', async () => {
+            if (colorBySelect.value === 'index') {
+                await loadIndexLayer();
+            } else {
+                renderCellMarkers(AppState.cells);
+                updateLegend('valuation');
+            }
+        });
+    }
+
+    // --- Mapa: toggle de capa de índice ---
+    const indexToggle = document.getElementById('indexToggle');
+    if (indexToggle) {
+        indexToggle.addEventListener('change', async () => {
+            if (indexToggle.checked) {
+                await loadIndexLayer();
+            } else {
+                renderCellMarkers(AppState.cells);
+                updateLegend('valuation');
+            }
+        });
+    }
+
+    // --- Dashboard: cargar al abrir pestaña ---
+    const dashboardTab = document.querySelector('.tab-btn[data-tab="dashboard"]');
+    if (dashboardTab && !AppState.dashboardLoaded) {
+        dashboardTab.addEventListener('click', () => {
+            loadDashboard();
+            AppState.dashboardLoaded = true;
         });
     }
 
@@ -1358,6 +1651,9 @@ async function init() {
 
     // Cargar celdas
     await loadCells();
+
+    // Cargar dashboard (pestaña inicial)
+    await loadDashboard();
 
     console.log('[Radar] Aplicación lista.');
 }

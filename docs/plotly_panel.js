@@ -324,3 +324,211 @@ function renderFeatureImportance(elementId, importanceData) {
 
     Plotly.newPlot(el, [trace], layout, PLOTLY_CONFIG);
 }
+
+/* ================================================================
+   renderIndexDistribution — Distribución del Índice (dona/barras)
+   ================================================================ */
+function renderIndexDistribution(elementId, distribution) {
+    const el = document.getElementById(elementId);
+    if (!el || !distribution) return;
+
+    const labels = Object.keys(distribution);
+    const values = Object.values(distribution);
+
+    if (values.reduce((a, b) => a + b, 0) === 0) {
+        el.innerHTML = '<p style="color:#7a8090;text-align:center;padding:40px">Sin datos de distribución</p>';
+        return;
+    }
+
+    const trace = {
+        type: 'pie',
+        labels: labels,
+        values: values,
+        hole: 0.45,
+        marker: {
+            colors: [URBAN_COLORS.danger, URBAN_COLORS.warning, URBAN_COLORS.teal, URBAN_COLORS.success],
+            line: { color: URBAN_COLORS.bg, width: 2 }
+        },
+        textinfo: 'label+value',
+        textfont: { size: 11, color: URBAN_COLORS.text },
+        hovertemplate: '<b>%{label}</b><br>Celdas: %{value} (%{percent})<extra></extra>'
+    };
+
+    const layout = {
+        ...PLOTLY_LAYOUT,
+        title: {
+            text: 'Celdas por rango del Índice',
+            font: { color: URBAN_COLORS.tealLight, size: 13 }
+        },
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.15, font: { size: 10, color: URBAN_COLORS.grayLight } }
+    };
+
+    Plotly.newPlot(el, [trace], layout, PLOTLY_CONFIG);
+}
+
+/* ================================================================
+   renderCityComparison — Índice por ciudad (barras)
+   ================================================================ */
+function renderCityComparison(elementId, cityAverages, globalAverage) {
+    const el = document.getElementById(elementId);
+    if (!el || !cityAverages) return;
+
+    const cities = Object.keys(cityAverages);
+    const values = Object.values(cityAverages);
+
+    if (cities.length === 0) {
+        el.innerHTML = '<p style="color:#7a8090;text-align:center;padding:40px">Sin datos por ciudad</p>';
+        return;
+    }
+
+    const trace = {
+        type: 'bar',
+        x: cities,
+        y: values,
+        marker: { color: [URBAN_COLORS.orange, URBAN_COLORS.teal] },
+        text: values.map(v => v.toFixed(1)),
+        textposition: 'outside',
+        textfont: { color: URBAN_COLORS.grayLight, size: 12 },
+        hovertemplate: '<b>%{x}</b><br>Índice promedio: %{y:.1f}<extra></extra>'
+    };
+
+    const layout = {
+        ...PLOTLY_LAYOUT,
+        title: {
+            text: `Índice de Inteligencia Urbana por Ciudad (global: ${globalAverage.toFixed(1)})`,
+            font: { color: URBAN_COLORS.tealLight, size: 13 }
+        },
+        yaxis: {
+            title: 'Índice (0-100)',
+            gridcolor: URBAN_COLORS.grid,
+            range: [0, 100],
+            zerolinecolor: URBAN_COLORS.grid
+        },
+        xaxis: { gridcolor: URBAN_COLORS.grid },
+        bargap: 0.4
+    };
+
+    Plotly.newPlot(el, [trace], layout, PLOTLY_CONFIG);
+}
+
+/* ================================================================
+   renderTopCells — Top 10 celdas por valorización (barras h)
+   ================================================================ */
+function renderTopCells(elementId, topCells) {
+    const el = document.getElementById(elementId);
+    if (!el || !topCells || topCells.length === 0) {
+        el.innerHTML = '<p style="color:#7a8090;text-align:center;padding:40px">Sin datos de top celdas</p>';
+        return;
+    }
+
+    const shortIds = topCells.map(c => c.cell_id.slice(0, 8) + '…');
+    const values = topCells.map(c => (c.annualized_valuation * 100).toFixed(2));
+
+    const trace = {
+        type: 'bar',
+        orientation: 'h',
+        y: shortIds,
+        x: values,
+        marker: {
+            color: topCells.map(c => c.city === 'Quito' ? URBAN_COLORS.orange : URBAN_COLORS.teal),
+            line: { color: URBAN_COLORS.grayDark, width: 1 }
+        },
+        text: values.map(v => v + '%'),
+        textposition: 'outside',
+        textfont: { color: URBAN_COLORS.grayLight, size: 10 },
+        hovertemplate: '<b>%{y}</b><br>Valorización anual: %{x}%<extra></extra>'
+    };
+
+    const layout = {
+        ...PLOTLY_LAYOUT,
+        title: {
+            text: 'Top 10 Celdas — Valorización Anualizada',
+            font: { color: URBAN_COLORS.tealLight, size: 13 }
+        },
+        xaxis: { title: 'Valorización anual (%)', gridcolor: URBAN_COLORS.grid },
+        yaxis: { autorange: 'reversed', gridcolor: URBAN_COLORS.grid },
+        bargap: 0.35,
+        margin: { ...PLOTLY_LAYOUT.margin, l: 90 }
+    };
+
+    Plotly.newPlot(el, [trace], layout, PLOTLY_CONFIG);
+}
+
+/* ================================================================
+   renderPriceTrend — Serie histórica de precios (línea)
+   ================================================================ */
+function renderPriceTrend(elementId, trendData) {
+    const el = document.getElementById(elementId);
+    if (!el || !trendData || !trendData.series || trendData.series.length === 0) {
+        if (el) el.innerHTML = '';
+        return;
+    }
+
+    const years = trendData.series.map(s => s.year);
+    const prices = trendData.series.map(s => s.avg_price);
+
+    const trace = {
+        type: 'scatter',
+        mode: 'lines+markers',
+        x: years,
+        y: prices,
+        line: { color: URBAN_COLORS.orange, width: 2.5, shape: 'spline' },
+        marker: { size: 7, color: URBAN_COLORS.orange, line: { color: '#fff', width: 1 } },
+        fill: 'tozeroy',
+        fillcolor: 'rgba(244,130,60,0.12)',
+        hovertemplate: '<b>%{x}</b><br>Precio prom.: $%{y:,.0f}<extra></extra>'
+    };
+
+    const layout = {
+        ...PLOTLY_LAYOUT,
+        title: {
+            text: `Evolución de precios (tendencia ${(trendData.price_trend * 100).toFixed(1)}% anual)`,
+            font: { color: URBAN_COLORS.tealLight, size: 12 }
+        },
+        xaxis: { title: 'Año', gridcolor: URBAN_COLORS.grid, dtick: 1 },
+        yaxis: {
+            title: 'Precio promedio (USD)',
+            gridcolor: URBAN_COLORS.grid,
+            tickformat: '$,.0f'
+        },
+        margin: { t: 40, r: 16, b: 40, l: 60 }
+    };
+
+    Plotly.newPlot(el, [trace], layout, PLOTLY_CONFIG);
+}
+
+/* ================================================================
+   renderCityStatsTable — Estadísticas por ciudad
+   ================================================================ */
+function renderCityStatsTable(elementId, cityStats) {
+    const el = document.getElementById(elementId);
+    if (!el || !cityStats || cityStats.length === 0) return;
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>Ciudad</th>
+                    <th>Celdas</th>
+                    <th>Transacciones</th>
+                    <th>Precio Promedio</th>
+                    <th>Valorización Prom.</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    for (const stat of cityStats) {
+        html += `
+                <tr>
+                    <td><b>${stat.city}</b></td>
+                    <td>${stat.cells}</td>
+                    <td>${stat.transactions.toLocaleString()}</td>
+                    <td>$${Number(stat.avg_price).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
+                    <td class="${stat.avg_valuation >= 0 ? 'shap-bar-pos' : 'shap-bar-neg'}">${(stat.avg_valuation * 100).toFixed(2)}%</td>
+                </tr>`;
+    }
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}

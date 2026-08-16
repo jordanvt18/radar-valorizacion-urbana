@@ -651,6 +651,95 @@ body {
 
 .explain-content.hidden { display: none; }
 
+/* ============================ DASHBOARD ============================ */
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    padding: 0 16px 8px;
+}
+
+.kpi-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.kpi-card:hover {
+    border-color: var(--color-teal-500);
+    transform: translateY(-2px);
+}
+
+.kpi-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    color: var(--color-teal-100);
+}
+
+.kpi-label {
+    font-size: .75rem;
+    color: var(--color-text-muted);
+    margin-top: 6px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+.chart-container--sm {
+    height: 300px;
+    min-height: 260px;
+}
+
+.chart-container--xs {
+    height: 200px;
+    min-height: 180px;
+}
+
+/* ============================ MAP LEGEND ============================ */
+.map-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    z-index: 400;
+    font-size: .75rem;
+    box-shadow: var(--shadow-md);
+    min-width: 140px;
+}
+
+.legend-title {
+    font-weight: 700;
+    color: var(--color-teal-100);
+    margin-bottom: 6px;
+    font-size: .78rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-gray-300);
+    padding: 2px 0;
+}
+
+.legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(255,255,255,.2);
+}
+
 /* ============================ SIMULATOR ============================ */
 .simulator-layout {
     display: grid;
@@ -778,6 +867,14 @@ body {
     .simulator-layout {
         grid-template-columns: 1fr;
     }
+
+    .kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 640px) {
@@ -849,4 +946,17 @@ body {
     }
 
     .tab-btn .tab-icon { display: none; }
+
+    .kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .kpi-card {
+        padding: 12px 8px;
+    }
+
+    .kpi-value {
+        font-size: 1.2rem;
+    }
 }

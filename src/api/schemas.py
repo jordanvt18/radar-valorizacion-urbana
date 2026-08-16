@@ -106,3 +106,77 @@ class ScenarioResponse(BaseModel):
     impact_summary: dict[str, Any] = Field(
         ..., description="Aggregate impact metrics"
     )
+
+
+# ─── Urban Intelligence Index ────────────────────────────────────────────────
+
+class CellIndex(BaseModel):
+    """Urban Intelligence Index for a single cell."""
+
+    cell_id: str
+    city: str
+    lat: float
+    lon: float
+    index: float = Field(..., ge=0, le=100, description="Urban Intelligence Index [0-100]")
+    accessibility: float
+    services: float
+    sustainability: float
+    connectivity: float
+    valuation: float
+
+
+class IndexResponse(BaseModel):
+    """Urban Intelligence Index for all cells."""
+
+    cells: list[CellIndex]
+    city_averages: dict[str, float]
+    global_average: float
+
+
+# ─── Global drivers ranking ─────────────────────────────────────────────────
+
+class DriverRank(BaseModel):
+    """One ranked urban driver."""
+
+    feature: str
+    importance: float
+
+
+class DriversResponse(BaseModel):
+    """Global ranking of urban valuation drivers."""
+
+    drivers: list[DriverRank]
+    method: str
+
+
+# ─── Price trends ───────────────────────────────────────────────────────────
+
+class TrendPoint(BaseModel):
+    """A single price observation in a trend series."""
+
+    year: int
+    avg_price: float
+    transactions: int
+
+
+class TrendsResponse(BaseModel):
+    """Historical price trend for a cell."""
+
+    cell_id: str
+    city: str
+    series: list[TrendPoint]
+    price_trend: float
+
+
+# ─── Global summary ─────────────────────────────────────────────────────────
+
+class SummaryResponse(BaseModel):
+    """Global statistics for the dashboard."""
+
+    total_cells: int
+    total_transactions: int
+    avg_valuation: float
+    avg_price: float
+    top_cells: list[dict[str, Any]]
+    city_stats: list[dict[str, Any]]
+    index_distribution: dict[str, int]

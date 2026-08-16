@@ -63,17 +63,15 @@ def sample_features(tmp_path) -> Path:
         "service_density": rng.uniform(2, 20, n),
     })
 
-    # Write to the project's data/processed/ directory
-    data_dir = _PROJECT_ROOT / "data" / "processed"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = data_dir / "features.csv"
+    # Write to an isolated temp path (never touch the project's real data)
+    csv_path = tmp_path / "features.csv"
     df.to_csv(csv_path, index=False)
 
-    # Also reload the API's cached features
-    from src.api.routes import _load_features
+    # Point the API at the temp file and reset its cache
+    import os
     import src.api.routes as routes
+    os.environ["RADAR_FEATURES_PATH"] = str(csv_path)
     routes._features_df = None  # Reset cache
-    _load_features()
 
     return csv_path
 
