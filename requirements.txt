@@ -19,7 +19,7 @@ lightgbm==4.3.0
 shap==0.44.0
 
 # Geospatial
-h3==4.7.0
+h3==4.5.0
 # geopandas==0.14.2  # Optional
 
 # Visualization
